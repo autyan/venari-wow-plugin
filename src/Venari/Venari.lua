@@ -130,6 +130,9 @@ local state = {
   aspectDrawerOpen = false,
   selectedFood = nil,
   selectedFoodIcon = nil,
+  selectedFoodItemId = nil,
+  petFoodLockItemId = nil,
+  petFoodLockUntil = nil,
   petFoodBestCandidate = nil,
   petFoodMatchCount = 0,
   selectedBandage = nil,
@@ -158,6 +161,7 @@ local lastCareMacroUpdate = 0
 local ammoDirty = true
 local lastAmmoUpdate = 0
 local resourceRefreshSerial = 0
+local PET_FOOD_LOCK_SECONDS = 6
 local updateVisuals
 local applyConfiguredButtons
 local setTooltip
@@ -1133,6 +1137,41 @@ local function selectPetFoodCandidate(candidates)
   return best, matchCount
 end
 
+local function lockedPetFoodCandidate(candidates)
+  local itemId = state.petFoodLockItemId
+  local untilTime = state.petFoodLockUntil
+  if not itemId or not untilTime or not GetTime or GetTime() > untilTime then
+    state.petFoodLockItemId = nil
+    state.petFoodLockUntil = nil
+    return nil
+  end
+
+  for _, candidate in ipairs(candidates or {}) do
+    if candidate.itemId == itemId and candidate.matchesPet and (candidate.count or 0) > 0 then
+      return candidate
+    end
+  end
+
+  state.petFoodLockItemId = nil
+  state.petFoodLockUntil = nil
+  return nil
+end
+
+local function lockSelectedPetFood()
+  local itemId = state.selectedFoodItemId
+  if not itemId or InCombatLockdown and InCombatLockdown() then
+    return
+  end
+
+  state.petFoodLockItemId = itemId
+  state.petFoodLockUntil = (GetTime and GetTime() or 0) + PET_FOOD_LOCK_SECONDS
+end
+
+local function clearPetFoodLock()
+  state.petFoodLockItemId = nil
+  state.petFoodLockUntil = nil
+end
+
 local function logPetFoodScan()
   updateSnapshot("foodlog")
 
@@ -1312,6 +1351,10 @@ local function refreshFoodMacro()
   local allowedTypes, allowedSource = currentAllowedPetFoodTypes()
   local candidates = scanPetFoodCandidates(allowedTypes)
   local bestCandidate, matchCount = selectPetFoodCandidate(candidates)
+  local lockedCandidate = lockedPetFoodCandidate(candidates)
+  if lockedCandidate then
+    bestCandidate = lockedCandidate
+  end
   if bestCandidate then
     selectedFood = bestCandidate.link or bestCandidate.name
     selectedFoodCount = bestCandidate.count or 0
@@ -1361,6 +1404,7 @@ local function refreshFoodMacro()
   ui.foodButton:SetAttribute("macrotext", macro)
   ui.foodButton:SetAttribute("macrotext1", macro)
   state.selectedFood = selectedFood
+  state.selectedFoodItemId = bestCandidate and bestCandidate.itemId or nil
   state.selectedFoodIcon = icon
   state.selectedFoodCount = selectedFoodCount
   if ui.foodButton.icon then
@@ -2817,6 +2861,11 @@ local function createUI()
   food:SetPoint("CENTER", root, "CENTER", -77, 98)
   setTooltip(food, L("tooltip.petFoodTitle"), L("tooltip.petFoodDefault"))
   attachClickDebug(food, "food")
+  food.VenariPostClick = function(_, mouseButton, down)
+    if mouseButton == "LeftButton" and not down then
+      lockSelectedPetFood()
+    end
+  end
   ui.foodButton = food
 
   local bandage = CreateFrame("Button", "VenariCareBandage", root, "SecureActionButtonTemplate")
@@ -3105,6 +3154,7 @@ local function setPetFoodPreference(value)
   if value ~= "lowest" and value ~= "highest" then
     return
   end
+  clearPetFoodLock()
   db().petFood.preference = value
   careMacroDirty = true
   refreshConfigPanel()
@@ -3115,6 +3165,7 @@ local function setPetFoodFlag(key, value)
   if key ~= "allowRaw" and key ~= "allowPrepared" then
     return
   end
+  clearPetFoodLock()
   db().petFood[key] = value and true or false
   careMacroDirty = true
   refreshConfigPanel()
