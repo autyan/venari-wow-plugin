@@ -1965,22 +1965,11 @@ local function commonAspectSecondary()
   return cfg.aspects and cfg.aspects[2] or defaults.aspects[2]
 end
 
-local function activeAspectVisualKey()
-  local primary = commonAspectPrimary()
-  local secondary = commonAspectSecondary()
-  if state.activeAspect == primary or state.activeAspect == secondary then
-    return state.activeAspect
+local function aspectCastMacro(name)
+  if not name or name == "" then
+    return "/run UIErrorsFrame:AddMessage('" .. L("macro.noSpell") .. "', 1.0, 0.5, 0.0)"
   end
-  return state.activeAspect or primary
-end
-
-local function alternateCommonAspectKey()
-  local primary = commonAspectPrimary()
-  local secondary = commonAspectSecondary()
-  if state.activeAspect == primary then
-    return secondary
-  end
-  return primary
+  return "#showtooltip " .. name .. "\n/cast !" .. name
 end
 
 local function updateAspectMainButton()
@@ -1989,27 +1978,46 @@ local function updateAspectMainButton()
     return
   end
 
-  local visualKey = activeAspectVisualKey()
-  local alternateKey = alternateCommonAspectKey()
+  local primaryKey = commonAspectPrimary()
+  local secondaryKey = commonAspectSecondary()
+  local leftKey = state.activeAspect == primaryKey and secondaryKey or primaryKey
+  local visualKey = (state.activeAspect == primaryKey or state.activeAspect == secondaryKey) and state.activeAspect or leftKey
+  local secondaryVisualKey = visualKey == primaryKey and secondaryKey or primaryKey
   if button.icon and spellBook[visualKey] then
     button.icon:SetTexture(spellBook[visualKey].icon)
     button.icon:SetAlpha(0.94)
   end
-  if button.secondaryIcon and spellBook[alternateKey] then
-    button.secondaryIcon:SetTexture(spellBook[alternateKey].icon)
+  if button.secondaryIcon and spellBook[secondaryVisualKey] then
+    button.secondaryIcon:SetTexture(spellBook[secondaryVisualKey].icon)
+    button.secondaryIcon:SetShown(primaryKey ~= secondaryKey)
+  end
+  if button.secondaryFrame then
+    button.secondaryFrame:SetShown(primaryKey ~= secondaryKey)
   end
 
-  local alternateName = spellName(alternateKey)
-  if alternateName and button.secureSpellName ~= alternateName and not (InCombatLockdown and InCombatLockdown()) then
+  local primaryName = spellName(primaryKey)
+  local leftName = spellName(leftKey)
+  local secondaryName = spellName(secondaryKey)
+  if (leftName or secondaryName) and not (InCombatLockdown and InCombatLockdown()) then
     button:SetAttribute("type", "macro")
-    button:SetAttribute("macrotext", castSpellMacro(alternateName))
     button:SetAttribute("type1", "macro")
-    button:SetAttribute("macrotext1", castSpellMacro(alternateName))
-    button.secureSpellName = alternateName
+    button:SetAttribute("macrotext", aspectCastMacro(leftName))
+    button:SetAttribute("macrotext1", aspectCastMacro(leftName))
+    button:SetAttribute("type2", "macro")
+    button:SetAttribute("macrotext2", aspectCastMacro(secondaryName))
+    button.secureSpellName = leftName
+    button.secureAspectRightName = secondaryName
   end
 
-  local visualName = spellName(visualKey) or visualKey or "Aspect"
-  setTooltip(button, visualName, alternateName and (L("tooltip.click") .. ": " .. alternateName) or L("tooltip.commonAspect"), nil, visualKey)
+  local visualName = spellName(visualKey) or leftName or primaryName or primaryKey or "Aspect"
+  local tooltipLines = {}
+  if leftName then
+    tooltipLines[#tooltipLines + 1] = L("tooltip.leftClick") .. ": " .. leftName
+  end
+  if secondaryName then
+    tooltipLines[#tooltipLines + 1] = L("tooltip.rightClick") .. ": " .. secondaryName
+  end
+  setTooltip(button, visualName, #tooltipLines > 0 and table.concat(tooltipLines, "\n") or L("tooltip.commonAspect"), nil, visualKey)
   setGlow(button, false)
 end
 
@@ -3554,16 +3562,12 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
     VenariDB.debugCommandVersion = 1
     local _, classFile = UnitClass("player")
     state.playerClass = classFile
-    if classFile ~= "HUNTER" then
-      printMsg(L("msg.loadedNonHunter"))
-    end
     createUI()
     refresh(event)
     after(0.2, forceRefreshCareAndAmmo)
     after(1.0, forceRefreshCareAndAmmo)
     after(2.5, forceRefreshCareAndAmmo)
     state.initialized = true
-    printMsg(L("msg.loaded"))
     return
   end
 

@@ -2,7 +2,7 @@
 ## Title: Venari
 ## Notes: Venari hunter sphere HUD for Autyan's TBC Anniversary addon pack.
 ## Author: Autyan
-## Version: 0.4.12
+## Version: 0.4.13
 ## SavedVariables: VenariDB
 
 VenariLocale.lua
