@@ -1,4 +1,6 @@
 local addonName = ...
+local port = assert(VenariPort, "VenariPort must be loaded before Venari.lua")
+assert(port.spells and port.spells.apply, "VenariPort.spells.apply is required")
 
 VenariDB = VenariDB or AutyanHunterDB or {}
 AutyanHunterDB = nil
@@ -69,6 +71,8 @@ local spellBook = {
   bandage = { fallback = L("resource.bandage"), icon = "Interface\\Icons\\INV_Misc_Bandage_Netherweave_Heavy" },
   petFood = { fallback = L("resource.petFood"), icon = "Interface\\Icons\\INV_Misc_Food_48" },
 }
+
+port.spells.apply(spellBook)
 
 local aspectOptions = { "hawk", "monkey", "cheetah", "pack", "beast", "wild", "viper" }
 local trapOptions = { "freezing", "frost", "explosive", "immolation", "snake" }

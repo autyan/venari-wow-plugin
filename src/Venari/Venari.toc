@@ -5,6 +5,7 @@
 ## Version: 0.4.13
 ## SavedVariables: VenariDB
 
+VenariPort.lua
 VenariLocale.lua
 VenariPetFoodDB.lua
 VenariDebug.lua
