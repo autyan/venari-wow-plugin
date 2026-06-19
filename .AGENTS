@@ -1,0 +1,10 @@
+Venari repository rules
+
+- Keep shared addon behavior in src/Venari/*.lua only when it is genuinely
+  portable across supported clients.
+- Put client/version-specific implementation details in the matching
+  ports/<version>/VenariPort.lua file.
+- Shared code may call VenariPort APIs, but it must not inline TBC, MoP,
+  locale/build-number, spell ID, or client API compatibility branches.
+- When adding support for a new client behavior, add or extend a port API
+  first, then keep src/Venari/*.lua as version-neutral callers.
