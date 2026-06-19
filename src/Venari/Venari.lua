@@ -391,9 +391,15 @@ end
 local function petActionMacro()
   return table.concat({
     "#showtooltip",
-    "/cast [@pet,dead] " .. spellName("revivePet"),
     "/cast [nopet] " .. spellName("callPet"),
-    "/cast [@pet,exists,nodead,nocombat] " .. spellName("dismissPet"),
+    "/cast [pet,nodead,nocombat] " .. spellName("dismissPet"),
+  }, "\n")
+end
+
+local function petReviveMacro()
+  return table.concat({
+    "#showtooltip " .. spellName("revivePet"),
+    "/cast " .. spellName("revivePet"),
   }, "\n")
 end
 
@@ -546,10 +552,7 @@ local function isAmmoItem(item)
         return true
       end
       if classId == 6 or (LE_ITEM_CLASS_PROJECTILE and classId == LE_ITEM_CLASS_PROJECTILE) then
-        return true
-      end
-      if subClassId == 2 or subClassId == 3 then
-        return true
+        return subClassId == nil or subClassId == 2 or subClassId == 3
       end
     end
   end
@@ -563,9 +566,6 @@ local function isAmmoItem(item)
         return true
       end
       if typeText == "Projectile" or typeText == "弹药" or typeText == "弹藥" then
-        return true
-      end
-      if subTypeText == "Arrow" or subTypeText == "Bullet" or subTypeText:find("箭") or subTypeText:find("弹") or subTypeText:find("彈") then
         return true
       end
     end
@@ -756,6 +756,9 @@ local function equippedAmmo()
   if link and type(GetItemInfo) == "function" then
     name = GetItemInfo(link)
   end
+  if not link or not totalCount or totalCount <= 0 then
+    return nil, nil, nil, nil
+  end
   return link, name, icon, totalCount
 end
 
@@ -770,14 +773,16 @@ local function bagAmmo()
       if link and isAmmoItem(link) then
         local itemId = itemIdFromLink(link) or link
         local count = containerItemCount(bag, slot) or 0
-        totals[itemId] = (totals[itemId] or 0) + count
-        if not metadata[itemId] then
-          local name = type(GetItemInfo) == "function" and GetItemInfo(link) or nil
-          metadata[itemId] = {
-            link = link,
-            name = name,
-            icon = itemIcon(link) or "Interface\\Icons\\INV_Ammo_Bullet_02",
-          }
+        if count > 0 then
+          totals[itemId] = (totals[itemId] or 0) + count
+          if not metadata[itemId] then
+            local name = type(GetItemInfo) == "function" and GetItemInfo(link) or nil
+            metadata[itemId] = {
+              link = link,
+              name = name,
+              icon = itemIcon(link) or "Interface\\Icons\\INV_Ammo_Bullet_02",
+            }
+          end
         end
       end
     end
@@ -2386,13 +2391,14 @@ local function attachClickDebug(button, label)
   button.VenariDiagLabel = label
   button:SetScript("PostClick", function(self, mouseButton, down)
     if db().clickDebug then
-      printMsg(("clicked %s button=%s down=%s type=%s type1=%s type2=%s"):format(
+      printMsg(("clicked %s button=%s down=%s type=%s type1=%s type2=%s ctrl-type2=%s"):format(
         tostring(self.VenariDiagLabel),
         tostring(mouseButton),
         tostring(down),
         shortValue(self.GetAttribute and self:GetAttribute("type")),
         shortValue(self.GetAttribute and self:GetAttribute("type1")),
-        shortValue(self.GetAttribute and self:GetAttribute("type2"))
+        shortValue(self.GetAttribute and self:GetAttribute("type2")),
+        shortValue(self.GetAttribute and self:GetAttribute("ctrl-type2"))
       ))
     end
     if self.VenariPostClick then
@@ -2625,9 +2631,11 @@ local function makeCenterButton(parent)
   button:SetAttribute("macrotext1", petInfoMacro())
   button:SetAttribute("type2", "macro")
   button:SetAttribute("macrotext2", petActionMacro())
+  button:SetAttribute("ctrl-type2", "macro")
+  button:SetAttribute("ctrl-macrotext2", petReviveMacro())
   button.VenariPostClick = function(_, mouseButton)
     if mouseButton == "RightButton" and schedulePetRefresh then
-      if state.petExists and state.petDead then
+      if IsControlKeyDown and IsControlKeyDown() and state.petExists and state.petDead then
         state.petRevivePending = true
         setPetReviveDeadGuard(0.5)
       end
@@ -3719,7 +3727,7 @@ local function printButtonDiag(label, button)
     printMsg(label .. ": missing")
     return
   end
-  printMsg(("%s shown=%s enabled=%s mouse=%s type=%s type1=%s type2=%s spell=%s macro=%s macro1=%s macro2=%s"):format(
+  printMsg(("%s shown=%s enabled=%s mouse=%s type=%s type1=%s type2=%s ctrl-type2=%s spell=%s macro=%s macro1=%s macro2=%s ctrl-macro2=%s"):format(
     label,
     tostring(button:IsShown()),
     tostring(button.IsEnabled and button:IsEnabled()),
@@ -3727,10 +3735,12 @@ local function printButtonDiag(label, button)
     shortValue(button.GetAttribute and button:GetAttribute("type")),
     shortValue(button.GetAttribute and button:GetAttribute("type1")),
     shortValue(button.GetAttribute and button:GetAttribute("type2")),
+    shortValue(button.GetAttribute and button:GetAttribute("ctrl-type2")),
     shortValue(button.GetAttribute and button:GetAttribute("spell")),
     shortValue(button.GetAttribute and button:GetAttribute("macrotext")),
     shortValue(button.GetAttribute and button:GetAttribute("macrotext1")),
-    shortValue(button.GetAttribute and button:GetAttribute("macrotext2"))
+    shortValue(button.GetAttribute and button:GetAttribute("macrotext2")),
+    shortValue(button.GetAttribute and button:GetAttribute("ctrl-macrotext2"))
   ))
 end
 
