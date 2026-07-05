@@ -388,19 +388,24 @@ local function spellKnown(key)
   return type(GetSpellInfo) == "function" and entry.id and GetSpellInfo(entry.id) ~= nil
 end
 
-local function petActionMacro()
-  return table.concat({
-    "#showtooltip",
-    "/cast [nopet] " .. spellName("callPet"),
-    "/cast [pet,nodead,nocombat] " .. spellName("dismissPet"),
-  }, "\n")
-end
-
 local function petReviveMacro()
   return table.concat({
     "#showtooltip " .. spellName("revivePet"),
     "/cast " .. spellName("revivePet"),
   }, "\n")
+end
+
+local function petActionMacroForState()
+  if state.petExists and state.petDead then
+    return petReviveMacro(), "revivePet"
+  end
+  if state.petExists then
+    local dismissName = spellName("dismissPet")
+    return "#showtooltip " .. dismissName .. "\n/cast [nocombat] " .. dismissName, "dismissPet"
+  end
+
+  local callName = spellName("callPet")
+  return "#showtooltip " .. callName .. "\n/cast " .. callName, "callPet"
 end
 
 local function feedPetMacro()
@@ -2030,6 +2035,22 @@ local function updateAspectMainButton()
   setGlow(button, false)
 end
 
+local function updatePetActionButton()
+  local button = ui.center
+  if not button or InCombatLockdown and InCombatLockdown() then
+    return
+  end
+
+  local macro, action = petActionMacroForState()
+  if macro and button.securePetAction ~= action then
+    button:SetAttribute("macrotext2", macro)
+    button.securePetAction = action
+  end
+  if spellName("revivePet") then
+    button:SetAttribute("ctrl-macrotext2", petReviveMacro())
+  end
+end
+
 local function configureSpellButton(button, spellKey)
   if not button or not spellKey or not spellBook[spellKey] then
     return
@@ -2275,6 +2296,7 @@ updateVisuals = function()
   end
 
   updateAspectMainButton()
+  updatePetActionButton()
 
   for _, button in pairs(ui.buttons) do
     updateSpellButton(button)
@@ -2630,9 +2652,10 @@ local function makeCenterButton(parent)
   button:SetAttribute("type1", "macro")
   button:SetAttribute("macrotext1", petInfoMacro())
   button:SetAttribute("type2", "macro")
-  button:SetAttribute("macrotext2", petActionMacro())
+  button:SetAttribute("macrotext2", select(1, petActionMacroForState()))
   button:SetAttribute("ctrl-type2", "macro")
   button:SetAttribute("ctrl-macrotext2", petReviveMacro())
+  button.securePetAction = select(2, petActionMacroForState())
   button.VenariPostClick = function(_, mouseButton)
     if mouseButton == "RightButton" and schedulePetRefresh then
       if IsControlKeyDown and IsControlKeyDown() and state.petExists and state.petDead then
