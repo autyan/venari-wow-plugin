@@ -1,4 +1,4 @@
-## Interface: 20505
+## Interface: 20506
 ## Title: Venari
 ## Notes: Venari hunter sphere HUD for Autyan's TBC Anniversary addon pack.
 ## Author: Autyan

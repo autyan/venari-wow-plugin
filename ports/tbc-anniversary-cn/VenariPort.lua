@@ -1,7 +1,7 @@
 VenariPort = {
   client = {
     key = "tbc-anniversary-cn",
-    interface = 20505,
+    interface = 20506,
   },
 }
 
