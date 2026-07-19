@@ -1,6 +1,6 @@
 local addonName = ...
 local port = assert(VenariPort, "VenariPort must be loaded before Venari.lua")
-assert(port.spells and port.spells.apply, "VenariPort.spells.apply is required")
+assert(port.spells and port.spells.apply and port.spells.getInfo, "VenariPort.spells adapter is required")
 
 VenariDB = VenariDB or AutyanHunterDB or {}
 AutyanHunterDB = nil
@@ -276,8 +276,8 @@ local function spellName(key)
       elseif type(IsPlayerSpell) == "function" then
         known = safeCall(IsPlayerSpell, spellId) and true or false
       end
-      if known and type(GetSpellInfo) == "function" then
-        name = GetSpellInfo(spellId)
+      if known then
+        name = port.spells.getInfo(spellId)
         if name then
           return name
         end
@@ -286,8 +286,8 @@ local function spellName(key)
   end
 
   local entry = spellBook[key]
-  if type(GetSpellInfo) == "function" and entry.id then
-    name = GetSpellInfo(entry.id)
+  if entry.id then
+    name = port.spells.getInfo(entry.id)
     if name then
       return name
     end
@@ -385,7 +385,7 @@ local function spellKnown(key)
     return false
   end
 
-  return type(GetSpellInfo) == "function" and entry.id and GetSpellInfo(entry.id) ~= nil
+  return entry.id and port.spells.getInfo(entry.id) ~= nil
 end
 
 local function petReviveMacro()
@@ -1919,10 +1919,7 @@ local function showNativeSpellTooltip(spellKey)
   if spellId and type(GameTooltip.SetSpellByID) == "function" then
     local ok = pcall(GameTooltip.SetSpellByID, GameTooltip, spellId)
     if ok then
-      local spellRank = nil
-      if type(GetSpellInfo) == "function" then
-        _, spellRank = GetSpellInfo(spellId)
-      end
+      local _, spellRank = port.spells.getInfo(spellId)
       setTooltipRank(spellRankText(spellKey, spellRank))
       return true
     end
